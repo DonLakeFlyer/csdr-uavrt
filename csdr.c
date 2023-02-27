@@ -53,6 +53,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "fastddc.h"
 #include <assert.h>
 
+// Additions for UDP support
+#include <memory.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <stdio.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <stdint.h>
+
 char usage[]=
 "csdr - a simple commandline tool for Software Defined Radio receiver DSP.\n\n"
 "usage: \n\n"
@@ -1159,15 +1168,45 @@ int main(int argc, char *argv[])
 
         firdes_lowpass_f(taps,taps_length,0.5/(float)factor,window);
 
+        // Setup up output udp port
+
+        int ipPort = 10000;
+        int fdSocket = socket(AF_INET, SOCK_DGRAM, 0);
+        if (fdSocket < 0 ) {
+            printf("Sender socket creation failed. Port: %d. Error: %s\n", ipPort, strerror(errno));
+            exit(0);        
+        } 
+
+        struct sockaddr_in  servaddr;   
+
+        memset(&servaddr, 0, sizeof(servaddr)); 
+            
+        servaddr.sin_family = AF_INET; 
+        servaddr.sin_port = htons(ipPort); 
+        servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+        if (connect(fdSocket, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
+            printf("Sender socket connect failed. Port: %d. Error: %s\n", ipPort, strerror(errno));
+            close(fdSocket);
+            exit(0);        
+        }
+
+        static uint16_t seqCount = 0;
+
         int input_skip=0;
         int output_size=0;
         FREAD_C;
         for(;;)
         {
             FEOF_CHECK;
-            output_size=fir_decimate_cc((complexf*)input_buffer, (complexf*)output_buffer, the_bufsize, factor, taps, padded_taps_length);
-            //fprintf(stderr, "os %d\n",output_size);
-            fwrite(output_buffer, sizeof(complexf), output_size, stdout);
+            output_size=fir_decimate_cc((complexf*)input_buffer, &((complexf*)output_buffer)[1], the_bufsize, factor, taps, padded_taps_length);
+
+            fprintf(stderr, "input size: %d output size %d\n",the_bufsize,output_size);
+
+            *(uint32_t*)&output_buffer[0] = seqCount++;
+            output_buffer[1] = 0;
+            //fwrite(output_buffer, sizeof(complexf), output_size, stdout);
+            send(fdSocket, output_buffer, sizeof(complexf) * (output_size + 1), 0);
             TRY_YIELD;
             input_skip=factor*output_size;
             memmove((complexf*)input_buffer,((complexf*)input_buffer)+input_skip,(the_bufsize-input_skip)*sizeof(complexf)); //memmove lets the source and destination overlap

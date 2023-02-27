@@ -47,7 +47,7 @@ SOVERSION = 0.15
 PARSEVECT ?= yes
 
 .PHONY: clean-vect clean codequality checkdocs v
-all: codequality csdr nmux
+all: codequality csdr-uavrt nmux
 libcsdr.so: fft_fftw.c fft_rpi.c libcsdr_wrapper.c libcsdr.c libcsdr_gpl.c fastddc.c fastddc.h  fft_fftw.h  fft_rpi.h  ima_adpcm.h  libcsdr_gpl.h  libcsdr.h  predefined.h
 	@echo NOTE: you may have to manually edit Makefile to optimize for your CPU \(especially if you compile on ARM, please edit PARAMS_NEON\).
 	@echo Auto-detected optimization parameters: $(PARAMS_SIMD)
@@ -58,8 +58,8 @@ libcsdr.so: fft_fftw.c fft_rpi.c libcsdr_wrapper.c libcsdr.c libcsdr_gpl.c fastd
 ifeq ($(PARSEVECT),yes)
 	-./parsevect dumpvect*.vect
 endif
-csdr: csdr.c libcsdr.so
-	gcc -std=gnu99 $(PARAMS_LOOPVECT) $(PARAMS_SIMD) csdr.c $(PARAMS_LIBS) -L. -lcsdr $(PARAMS_MISC) -o csdr
+csdr-uavrt: csdr.c libcsdr.so
+	gcc -std=gnu99 $(PARAMS_LOOPVECT) $(PARAMS_SIMD) csdr.c $(PARAMS_LIBS) -L. -lcsdr $(PARAMS_MISC) -o csdr-uavrt
 ddcd: ddcd.cpp libcsdr.so ddcd.h
 	g++ $(PARAMS_LOOPVECT) $(PARAMS_SIMD) ddcd.cpp $(PARAMS_LIBS) -L. -lcsdr -lpthread $(PARAMS_MISC) -o ddcd
 nmux: nmux.cpp libcsdr.so nmux.h tsmpool.cpp tsmpool.h
@@ -73,13 +73,13 @@ clean: clean-vect
 	rm -f libcsdr.so.$(SOVERSION) csdr ddcd nmux *.o *.so
 install: all 
 	install -m 0755 libcsdr.so.$(SOVERSION) $(PREFIX)/lib
-	install -m 0755 csdr $(PREFIX)/bin
+	install -m 0755 csdr-uavrt $(PREFIX)/bin
 	install -m 0755 csdr-fm $(PREFIX)/bin
 	install -m 0755 nmux $(PREFIX)/bin
 	#-install -m 0755 ddcd $(PREFIX)/bin
 	@ldconfig || echo please run ldconfig
 uninstall:
-	rm $(PREFIX)/lib/libcsdr.so.$(SOVERSION) $(PREFIX)/bin/csdr $(PREFIX)/bin/csdr-fm
+	rm $(PREFIX)/lib/libcsdr.so.$(SOVERSION) $(PREFIX)/bin/csdr-uavrt $(PREFIX)/bin/csdr-fm
 	ldconfig
 disasm:
 	objdump -S libcsdr.so.$(SOVERSION) > libcsdr.disasm
