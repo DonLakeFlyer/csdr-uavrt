@@ -1201,7 +1201,7 @@ int main(int argc, char *argv[])
             FEOF_CHECK;
             output_size=fir_decimate_cc((complexf*)input_buffer, &((complexf*)output_buffer)[1], the_bufsize, factor, taps, padded_taps_length);
 
-            fprintf(stderr, "input size: %d output size %d\n",the_bufsize,output_size);
+            //fprintf(stderr, "input size: %d output size %d\n",the_bufsize,output_size);
 
             *(uint32_t*)&output_buffer[0] = seqCount++;
             output_buffer[1] = 0;
